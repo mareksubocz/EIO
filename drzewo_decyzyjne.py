@@ -1,5 +1,5 @@
 import pandas
-import numpy as np
+from math import log2
 from ete3 import Tree
 
 # variable - decision variable in our dataset
@@ -9,8 +9,9 @@ def entropy(df, variable: str):
     for c in classes:
         p = len(df[df[variable] == c]) / len(df)
         if p == 0: continue
-        result -= p*np.log2(p)
+        result -= p*log2(p)
     return result
+
 
 # attribute - attribute the condition is checked on
 def conditional_entropy(df, variable: str, attribute: str):
@@ -21,31 +22,30 @@ def conditional_entropy(df, variable: str, attribute: str):
         result += len(df_filtered) / len(df) * entropy(df_filtered, variable)
     return result
 
+
 def information_gain(df, variable: str, attribute: str):
     return entropy(df, variable) - conditional_entropy(df, variable, attribute)
+
 
 def intrinsic_info(df, attribute: str):
     # is intrinsic_info just entropy of an attribute?
     return entropy(df, attribute)
 
+
 def gain_ratio(df, variable: str, attribute: str):
     return information_gain(df, variable, attribute) / intrinsic_info(df, attribute)
 
+
 def construct_tree(t: Tree, df, branch):
-    decision_distribution = (len(df[df["Survived"] == 0]),
-                             len(df[df["Survived"] == 1]))
-    if (decision_distribution[0] == 0 or decision_distribution[1] == 0):
-        t.add_child(name=f" {branch}: {decision_distribution}")
+    distribution = (len(df[df["Survived"] == 0]), len(df[df["Survived"] == 1]))
+    if distribution[0] == 0 or distribution[1] == 0 or len(df.columns) == 1:
+        t.add_child(name=f" {branch}: {distribution}")
         return t
 
-    if len(df.columns) == 1:
-        t.add_child(name=f" {branch}: {decision_distribution}")
-        return t
     ratios = [(gain_ratio(df, "Survived", a), a) for a in df.columns[:-1]]
     chosen_attrib = max(ratios)[1]
 
-
-    new_name = f" {branch}: {decision_distribution} - - - "+chosen_attrib
+    new_name = f" {branch}: {distribution} - - - "+chosen_attrib
     t.add_child(name=new_name)
 
     classes = df[chosen_attrib].unique()
@@ -55,8 +55,10 @@ def construct_tree(t: Tree, df, branch):
         construct_tree(t.search_nodes(name=new_name)[0], df_filtered,c)
     return t
 
+
 if __name__ == "__main__":
     df = pandas.read_csv('titanic-homework.csv')
+    continuous_attributes = ["Age"]
     #FIXME: delete Age from here
     ignored_attributes = ["Name", "PassengerId", "Age"]
     # deleting unused columns
